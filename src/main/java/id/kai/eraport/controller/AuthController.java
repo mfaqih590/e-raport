@@ -27,7 +27,7 @@ public class AuthController {
     public ResponseEntity<ApiResponse<Object>> register(@Validated @RequestBody RegisterUserRequest request) {
         authService.register(request);
 
-        return ResponseBuilder.created("Form created successfully");
+        return ResponseBuilder.created("User created successfully");
     }
 
     @PostMapping("/login")

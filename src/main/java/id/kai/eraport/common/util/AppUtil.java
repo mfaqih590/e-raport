@@ -1,5 +1,7 @@
 package id.kai.eraport.common.util;
 
+import id.kai.eraport.exception.BadRequestException;
+import id.kai.eraport.exception.DatabaseException;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
@@ -9,211 +11,203 @@ import org.springframework.web.multipart.MultipartFile;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.*;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
-public class AppUtil {
+/**
+ * Utility class untuk kebutuhan umum aplikasi:
+ * - File upload
+ * - File delete
+ * - Konversi Base64
+ * - Format waktu
+ */
+public final class AppUtil {
+
     private static final Logger LOGGER = LoggerFactory.getLogger(AppUtil.class);
+
     private static final int IMG_WIDTH = 100;
     private static final int IMG_HEIGHT = 100;
 
-    private static boolean isCollectionEmpty(Collection<?> collection) {
-        return collection == null || collection.isEmpty();
+    private AppUtil() {
+        // Mencegah instansiasi
     }
 
+    /**
+     * Mengecek apakah object kosong (null, string kosong, atau collection kosong)
+     */
     public static boolean isObjectEmpty(Object object) {
         if (object == null) return true;
-        else if (object instanceof String) {
-            return ((String) object).trim().length() == 0;
-        } else if (object instanceof Collection) {
-            return isCollectionEmpty((Collection<?>) object);
+        if (object instanceof String str) {
+            return str.trim().isEmpty();
+        }
+        if (object instanceof Collection<?> col) {
+            return col.isEmpty();
         }
         return false;
     }
 
-    public static String handleFileUploadMultipart(MultipartFile file, String SAVE_DIR){
-        //Format di windows, karena tidak bisa menggunakan colon (:)
-        String extension = FilenameUtils.getExtension(file.getOriginalFilename());
-        LOGGER.info("cek : "+extension);
+    /**
+     * Upload file multipart (jpg, jpeg, png)
+     * @return nama file yang tersimpan
+     */
+    public static String handleFileUploadMultipart(MultipartFile file, String saveDir) {
 
-        if(extension.equals("jpg") || extension.equals("jpeg")||extension.equals("png")){
-            SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH-mm-ss");
-            String dateString = format.format(new Date());
-            String outputFilePath = "file" + "_" + dateString + "." + extension;
+        if (file == null || file.isEmpty()) {
+            throw new BadRequestException("File tidak boleh kosong");
+        }
 
-            //Format di linux dapat menggunakan colon (:)
-            //String outputFilePath = "file" + "_" + new Timestamp(System.currentTimeMillis()) + "." + extension;
+        String extension = FilenameUtils.getExtension(file.getOriginalFilename()).toLowerCase();
+        Set<String> allowedExt = Set.of("jpg", "jpeg", "png");
 
-            File uploadedFile = new File(SAVE_DIR, outputFilePath);
-            if (!file.isEmpty()) {
-                try {
-                    File fileSaveDir = new File(SAVE_DIR);
-                    if (!fileSaveDir.exists()) {
-                        LOGGER.info("Creates the save directory if it does not exists");
-                        fileSaveDir.mkdirs();
-                    }
+        if (!allowedExt.contains(extension)) {
+            throw new BadRequestException("Format file tidak didukung");
+        }
 
-                    uploadedFile.createNewFile();
-                    FileOutputStream fileOutputStream = new FileOutputStream(uploadedFile);
-                    fileOutputStream.write(file.getBytes());
-                    fileOutputStream.close();
+        String fileName = generateFileName(extension);
+        Path targetPath = Path.of(saveDir, fileName);
 
-                    return outputFilePath;
-                } catch (IOException e) {
-                    LOGGER.error("You failed to upload file => " + e.getMessage());
-                    return "1";
-                }
-            }else {
-                LOGGER.error("You failed to upload file because the file is empty.");
-                return "2";
-            }
-        }else{
-            LOGGER.error("You failed to upload file because extension file incorrect.");
-            return "3";
+        try {
+            Files.createDirectories(targetPath.getParent());
+            Files.write(targetPath, file.getBytes());
+            return fileName;
+        } catch (IOException e) {
+            LOGGER.error("Gagal upload file", e);
+            throw new DatabaseException("Gagal menyimpan file");
         }
     }
 
-    public static String handleFileUpload(String scanFile, String SAVE_DIR, String ext) {
+    /**
+     * Upload file dari string Base64
+     * @return nama file yang tersimpan
+     */
+    public static String handleFileUploadBase64(String base64, String saveDir, String ext) {
 
-        //Format di windows, karena tidak bisa menggunakan colon (:)
-        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH-mm-ss");
-        String dateString = format.format(new Date());
-        String outputFilePath = "file" + "_" + dateString + "." + ext;
-
-        //Format di linux dapat menggunakan colon (:)
-//        String outputFilePath = "file" + "_" + new Timestamp(System.currentTimeMillis()) + "." + ext;
-
-        if (!scanFile.isEmpty()) {
-
-            try {
-                LOGGER.info("Decoding base64");
-
-                File fileSaveDir = new File(SAVE_DIR);
-                if (!fileSaveDir.exists()) {
-                    LOGGER.info("Creates the save directory if it does not exists");
-                    fileSaveDir.mkdirs();
-                }
-
-                // decode the string and write to file
-                byte[] decodedBytes = Base64
-                        .getMimeDecoder()
-                        .decode(scanFile);
-
-                // create output file
-                File outputFile = new File(fileSaveDir
-                        //.getParentFile()
-                        .getAbsolutePath()
-                        + "/" + outputFilePath);
-
-                FileUtils.writeByteArrayToFile(outputFile, decodedBytes);
-                LOGGER.info("nyoba tampil"+String.valueOf(outputFile));
-
-//                File input = new File(String.valueOf(outputFile));
-//                BufferedImage image = ImageIO.read(input);
-//                int type = image.getType() == 0? BufferedImage.TYPE_INT_ARGB : image.getType();
-//
-//                BufferedImage resized = resizeImage(image,type);
-//                File output = new File(String.valueOf(outputFile));
-//                ImageIO.write(resized, ext, output);
-
-                return outputFilePath;
-
-            } catch (Exception e) {
-                LOGGER.error("You failed to upload file => " + e.getMessage());
-                return "1";
-            }
-        } else {
-            LOGGER.error("You failed to upload file because the file is empty.");
-            return "2";
+        if (base64 == null || base64.isBlank()) {
+            throw new BadRequestException("Data file kosong");
         }
 
+        String fileName = generateFileName(ext);
+        Path targetPath = Path.of(saveDir, fileName);
+
+        try {
+            byte[] decodedBytes = Base64.getDecoder().decode(base64);
+            Files.createDirectories(targetPath.getParent());
+            Files.write(targetPath, decodedBytes);
+            return fileName;
+        } catch (Exception e) {
+            LOGGER.error("Gagal upload base64", e);
+            throw new DatabaseException("Gagal menyimpan file");
+        }
     }
 
-    private static BufferedImage resizeImage(BufferedImage originalImage, int type){
-        BufferedImage resizedImage = new BufferedImage(IMG_WIDTH, IMG_HEIGHT, type);
-        Graphics2D g = resizedImage.createGraphics();
-        g.drawImage(originalImage, 0, 0, IMG_WIDTH, IMG_HEIGHT, null);
-        g.dispose();
+    /**
+     * Menghapus file berdasarkan nama file
+     */
+    public static void handleFileRemove(String saveDir, String fileName) {
+
+        if (fileName == null || fileName.isBlank()) {
+            throw new BadRequestException("Nama file kosong");
+        }
+
+        try {
+            FileUtils.deleteQuietly(new File(saveDir, fileName));
+        } catch (Exception e) {
+            LOGGER.error("Gagal hapus file", e);
+            throw new DatabaseException("Gagal menghapus file");
+        }
+    }
+
+    /**
+     * Mengubah file menjadi Base64 string
+     */
+    public static String convertFileToBase64(String saveDir, String fileName) {
+
+        try {
+            byte[] bytes = Files.readAllBytes(Path.of(saveDir, fileName));
+            return Base64.getEncoder().encodeToString(bytes);
+        } catch (IOException e) {
+            LOGGER.error("Gagal convert file ke base64", e);
+            throw new DatabaseException("Gagal membaca file");
+        }
+    }
+
+    /**
+     * Resize gambar ke ukuran default
+     */
+    private static BufferedImage resizeImage(BufferedImage originalImage, int type) {
+
+        BufferedImage resizedImage =
+                new BufferedImage(IMG_WIDTH, IMG_HEIGHT, type);
+
+        Graphics2D graphics = resizedImage.createGraphics();
+        graphics.drawImage(originalImage, 0, 0, IMG_WIDTH, IMG_HEIGHT, null);
+        graphics.dispose();
 
         return resizedImage;
     }
 
-    public static String handleConvert(String scanFile, String SAVE_DIR) throws IOException {
-        String img = SAVE_DIR+"/"+scanFile;
-        byte[] fileContent = FileUtils.readFileToByteArray(new File(img));
-        String encodedString = Base64.getEncoder().encodeToString(fileContent);
-
-        return encodedString;
+    /**
+     * Format durasi ke jumlah hari
+     */
+    public static String dayFormatDuration(long durationMillis) {
+        long days = Duration.ofMillis(durationMillis).toDays();
+        return String.format("%02d", days);
     }
 
-    public static String handleFileRemove(String SAVE_DIR, String urlFile) {
-        if (!urlFile.isEmpty()) {
-            try {
-                LOGGER.info("path : "+SAVE_DIR + "/" + urlFile);
-                FileUtils.touch(new File(SAVE_DIR + "/" + urlFile));
-                File fileToDelete = FileUtils.getFile(SAVE_DIR + "/" + urlFile);
-                boolean success = FileUtils.deleteQuietly(fileToDelete);
-                LOGGER.info("success delete file");
-                return "success";
+    /**
+     * Format durasi ke HH:mm:ss
+     */
+    public static String timeFormatDuration(long durationMillis) {
 
-            } catch (Exception e) {
-                LOGGER.error("You failed to delete file => " + e.getMessage());
-                return "1";
-            }
-        } else {
-            LOGGER.error("You failed to delete file because the file is empty.");
-            return "2";
-        }
+        Duration duration = Duration.ofMillis(durationMillis);
+
+        long hours = duration.toHoursPart();
+        long minutes = duration.toMinutesPart();
+        long seconds = duration.toSecondsPart();
+
+        return String.format("%02d:%02d:%02d", hours, minutes, seconds);
     }
 
-    public static String dayFormatDuration(long duration) {
-
-        long diffDays = duration / (24 * 60 * 60 * 1000);
-
-        return String.format("%02d", diffDays);
-    }
-
-    public static String timeFormatDuration(long duration) {
-
-        long diffSeconds = duration / 1000 % 60;
-        long diffMinutes = duration / (60 * 1000) % 60;
-        long diffHours = duration / (60 * 60 * 1000) % 24;
-        long diffDays = duration / (24 * 60 * 60 * 1000);
-
-        return String.format("%02d:%02d:%02d", diffHours, diffMinutes, diffSeconds);
-    }
-
+    /**
+     * Mengecek apakah array mengandung nilai tertentu
+     */
     public static boolean checkArrayContains(String[] arr, String targetValue) {
-        Set<String> set = new HashSet<String>(Arrays.asList(arr));
-        return set.contains(targetValue);
+        return Set.of(arr).contains(targetValue);
     }
 
-    public static String convertToCurrentTimeZone(String Date) {
-        String converted_date = "";
-        try {
+    /**
+     * Konversi waktu UTC ke timezone lokal server
+     */
+    public static String convertToCurrentTimeZone(String utcDate) {
 
-            DateFormat utcFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
-            utcFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
+        Instant instant = Instant.parse(utcDate);
+        ZonedDateTime zonedDateTime =
+                instant.atZone(ZoneId.systemDefault());
 
-            Date date = utcFormat.parse(String.valueOf(Date));
-
-            DateFormat currentTFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-            currentTFormat.setTimeZone(TimeZone.getTimeZone(getCurrentTimeZone()));
-
-            converted_date =  currentTFormat.format(date);
-        }catch (Exception e){ e.printStackTrace();}
-
-        return converted_date;
+        return zonedDateTime.format(
+                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+        );
     }
 
-//get the current time zone
+    /**
+     * Mendapatkan timezone server saat ini
+     */
+    public static String getCurrentTimeZone() {
+        return ZoneId.systemDefault().getId();
+    }
 
-    public static String getCurrentTimeZone(){
-        TimeZone tz = Calendar.getInstance().getTimeZone();
-//        System.out.println(tz.getDisplayName());
-        return tz.getID();
+    /**
+     * Generate nama file unik berdasarkan waktu saat ini
+     */
+    private static String generateFileName(String extension) {
+        return "file_" +
+                LocalDateTime.now().format(
+                        DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
+                ) +
+                "." + extension;
     }
 }

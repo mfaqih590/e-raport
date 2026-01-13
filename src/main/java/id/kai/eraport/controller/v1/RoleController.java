@@ -1,4 +1,4 @@
-package id.kai.eraport.controller;
+package id.kai.eraport.controller.v1;
 
 import id.kai.eraport.common.helper.ResponseBuilder;
 import id.kai.eraport.common.response.ApiResponse;

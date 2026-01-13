@@ -30,9 +30,10 @@ public class SecurityConfig {
                                 "/swagger-resources/**",
                                 "/webjars/**",
                                 "/error"
-                        ).permitAll()
+                        ).permitAll()   
 
                         .requestMatchers("/api/v1/auth/**").permitAll()
+                        .requestMatchers("/api/v1/menu/**").permitAll()
 
                         .anyRequest().authenticated()
                 )

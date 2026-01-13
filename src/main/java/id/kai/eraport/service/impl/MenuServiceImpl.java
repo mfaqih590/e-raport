@@ -1,23 +1,30 @@
 package id.kai.eraport.service.impl;
 
+import id.kai.eraport.common.pagination.SortBuilder;
+import id.kai.eraport.common.specification.GenericSpecification;
 import id.kai.eraport.dto.auth.JwtUserInfo;
+import id.kai.eraport.dto.global.PaginationRequest;
 import id.kai.eraport.exception.ResourceNotFoundException;
 import id.kai.eraport.model.Menus;
-import id.kai.eraport.model.Roles;
 import id.kai.eraport.repository.db.MenuRepository;
 import id.kai.eraport.service.interfaces.JwtService;
 import id.kai.eraport.service.interfaces.MenuService;
 import jakarta.transaction.Transactional;
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.sql.Timestamp;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @Transactional
 public class MenuServiceImpl implements MenuService {
@@ -26,6 +33,8 @@ public class MenuServiceImpl implements MenuService {
 
     @Autowired
     private JwtService jwtService;
+
+    private static final Logger logger = LoggerFactory.getLogger(MenuServiceImpl.class);
 
     public Menus create(Menus menu, String token) {
         JwtUserInfo userInfo = jwtService.extractUserInfo(token);
@@ -69,5 +78,19 @@ public class MenuServiceImpl implements MenuService {
         menus.setLastModifiedAt(new Timestamp(System.currentTimeMillis()));
         menus.setLastModifiedBy(userInfo.getId());
         menuRepository.save(menus);
+    }
+
+    public Page<Menus> getMenusPaginated(PaginationRequest request) {
+        //komponen pagination
+        Sort sort = SortBuilder.build(request.getSorts());
+        Pageable pageable = PageRequest.of(
+                request.getPage()-1,
+                request.getSize(),
+                sort
+        );
+        Specification<Menus> spec =
+                GenericSpecification.build(request.getFilters());
+
+        return menuRepository.findAll(spec, pageable);
     }
 }

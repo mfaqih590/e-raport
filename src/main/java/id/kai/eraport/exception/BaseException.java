@@ -9,4 +9,7 @@ public class BaseException extends RuntimeException {
         super(message);
         this.status = status;
     }
+    public HttpStatus getStatus() {
+        return status;
+    }
 }
