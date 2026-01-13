@@ -2,8 +2,10 @@ package id.kai.eraport.controller.v1;
 
 import id.kai.eraport.common.helper.ResponseBuilder;
 import id.kai.eraport.common.response.ApiResponse;
+import id.kai.eraport.dto.global.PaginationRequest;
 import id.kai.eraport.model.Roles;
 import id.kai.eraport.service.interfaces.RoleService;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,20 +40,20 @@ public class RoleController {
         return ResponseBuilder.ok("Role updated successfully");
     }
 
-    @GetMapping
-    public ResponseEntity<ApiResponse<List<Roles>>> getAllRole(
-            @RequestParam(defaultValue = "1")
-            @Min(value = 1, message = "Page number must be at least 1")
-            int page,
-            @RequestParam(defaultValue = "10")
-            @Min(value = 1, message = "Page size must be at least 1")
-            @Max(value = 100, message = "Page size must not exceed 100")
-            int size,
-            @RequestParam(defaultValue = "id") String sortBy) {
-
-        Page<Roles> role = roleService.getAll(page - 1, size, sortBy);
-        return ResponseBuilder.paginated(role, "Role retrieved successfully");
-    }
+//    @GetMapping
+//    public ResponseEntity<ApiResponse<List<Roles>>> getAllRole(
+//            @RequestParam(defaultValue = "1")
+//            @Min(value = 1, message = "Page number must be at least 1")
+//            int page,
+//            @RequestParam(defaultValue = "10")
+//            @Min(value = 1, message = "Page size must be at least 1")
+//            @Max(value = 100, message = "Page size must not exceed 100")
+//            int size,
+//            @RequestParam(defaultValue = "id") String sortBy) {
+//
+//        Page<Roles> role = roleService.getAll(page - 1, size, sortBy);
+//        return ResponseBuilder.paginated(role, "Role retrieved successfully");
+//    }
 
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<Roles>> getRoleById(
@@ -70,5 +72,12 @@ public class RoleController {
         String token = authHeader.replace("Bearer ", "").trim();
         roleService.delete(id, token);
         return ResponseBuilder.ok("Role deleted successfully");
+    }
+
+    @PostMapping("/paginated")
+    public ResponseEntity<ApiResponse<List<Roles>>> getRolePaginated(@Valid @RequestBody PaginationRequest request) {
+        Page<Roles> result = roleService.getRolePaginated(request);
+
+        return ResponseBuilder.paginated(result, "Roles retrieved successfully");
     }
 }

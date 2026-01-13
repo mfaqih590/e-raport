@@ -1,5 +1,6 @@
 package id.kai.eraport.service.interfaces;
 
+import id.kai.eraport.dto.global.PaginationRequest;
 import id.kai.eraport.model.Roles;
 import org.springframework.data.domain.Page;
 
@@ -12,4 +13,5 @@ public interface RoleService {
     Page<Roles> getAll(int page, int size, String sortBy);
     Roles getById(UUID id);
     void delete(UUID id, String token);
+    Page<Roles> getRolePaginated(PaginationRequest request);
 }

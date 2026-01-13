@@ -1,7 +1,11 @@
 package id.kai.eraport.service.impl;
 
+import id.kai.eraport.common.pagination.SortBuilder;
+import id.kai.eraport.common.specification.GenericSpecification;
 import id.kai.eraport.dto.auth.JwtUserInfo;
+import id.kai.eraport.dto.global.PaginationRequest;
 import id.kai.eraport.exception.ResourceNotFoundException;
+import id.kai.eraport.model.Menus;
 import id.kai.eraport.model.Roles;
 import id.kai.eraport.repository.db.RoleRepository;
 import id.kai.eraport.service.interfaces.JwtService;
@@ -12,8 +16,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
+import javax.management.relation.Role;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.UUID;
@@ -66,5 +72,18 @@ public class RoleServiceImpl implements RoleService {
         role.setLastModifiedAt(new Timestamp(System.currentTimeMillis()));
 
         roleRepository.save(role);
+    }
+
+    public Page<Roles> getRolePaginated(PaginationRequest request) {
+        //komponen pagination
+        Sort sort = SortBuilder.build(request.getSorts());
+        Pageable pageable = PageRequest.of(
+                request.getPage()-1,
+                request.getSize(),
+                sort
+        );
+        Page<Roles> roles = roleRepository.findAllByIsDeletedFalse(pageable);
+
+        return roles;
     }
 }
